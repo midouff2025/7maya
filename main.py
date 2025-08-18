@@ -168,7 +168,7 @@ async def on_message(message):
                     await message.author.timeout(until_time, reason="تكرار منشن المالك")
                     embed = discord.Embed(
                         title="⛔ تم اسكاتك",
-                        description=f"{message.author.mention} لقد تم اسكاتك لمدة ساعة بسبب تكرارك للمنشن.",
+                        description=f"{message.author.mention} لقد تم اسكاتك بسبب تكرارك للمنشن.",
                         color=0xFF0000
                     )
                     await message.channel.send(embed=embed)
@@ -202,7 +202,7 @@ async def on_message(message):
                     await message.author.timeout(until_time, reason="نشر روابط")
                     embed = discord.Embed(
                         title="⛔ تم اسكاتك",
-                        description=f"{message.author.mention} تم اسكاتك ساعة بسبب تكرار نشر الروابط.",
+                        description=f"{message.author.mention} تم اسكاتك بسبب تكرار نشر الروابط.",
                         color=0xFF0000
                     )
                     await message.channel.send(embed=embed)
@@ -233,7 +233,7 @@ async def on_message(message):
                 await message.author.timeout(until_time, reason="استخدام كلمات مسيئة")
                 embed = discord.Embed(
                     title="⛔ تم اسكاتك",
-                    description=f"{message.author.mention} تم اسكاتك ساعة بسبب تكرار استخدام كلمات مسيئة.",
+                    description=f"{message.author.mention} تم اسكاتك بسبب تكرار استخدام كلمات مسيئة.",
                     color=0xFF0000
                 )
                 await message.channel.send(embed=embed)
@@ -250,5 +250,6 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
 
