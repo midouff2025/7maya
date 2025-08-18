@@ -71,7 +71,6 @@ REPLACEMENTS = {
     "*":"","^":"","~":"","`":"","?":"","!":"","-":"","=":"",",":"",".":""
 }
 
-
 def normalize_text(text: str) -> str:
     text = text.lower()
     for k, v in REPLACEMENTS.items():
@@ -164,7 +163,7 @@ async def on_message(message):
         else:
             try:
                 if not message.author.guild_permissions.administrator:
-                   until_time = utcnow() + timedelta(days=1)
+                    until_time = utcnow() + timedelta(days=1)
                     await message.author.timeout(until_time, reason="تكرار منشن المالك")
                     embed = discord.Embed(
                         title="⛔ تم اسكاتك",
@@ -229,7 +228,7 @@ async def on_message(message):
             await message.channel.send(embed=embed)
         else:
             try:
-               until_time = utcnow() + timedelta(days=1)
+                until_time = utcnow() + timedelta(days=1)
                 await message.author.timeout(until_time, reason="استخدام كلمات مسيئة")
                 embed = discord.Embed(
                     title="⛔ تم اسكاتك",
@@ -250,7 +249,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
-
-
-
