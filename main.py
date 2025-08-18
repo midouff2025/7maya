@@ -43,7 +43,7 @@ badword_warnings = {}
 # --- قائمة الكلمات المسيئة ---
 BAD_WORDS = [
     "fuck","shit","bitch","asshole","bastard","dick","douche","cunt","fag","slut",
-    "whore","prick","motherfucker","nigger","cock","pussy","twat","jerk","idiot",
+    "whore","prick","motherfucker","nigger","cock","pussy","twat","jerk","idiot","سوة","سوى","سخون","سليب","منوي","حواي",
     "9LAWI","9lawi","zok","zb","MOK","moron","dumbass","nik","nik mok","9A7BA","الطبون","طبون","زبور","الزبور",
     "zaml","كلب","نيك","نيك مك","كس","mok","نيك يماك","قحبة","ولد القحبة",
     "ابن الكلب","حمار","غبي","قذر","حقير","كافر","زب","زبي","قلاوي","زك",
@@ -249,3 +249,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
