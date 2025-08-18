@@ -77,13 +77,17 @@ def normalize_text(text: str) -> str:
     for k, v in replacements.items():
         text = text.replace(k, v)
 
-    # 4. حذف أي رمز غير حرف عربي/انجليزي/رقم
+    # 4. حذف الكشيدة (ـــــ)
+    text = text.replace("ـ", "")
+
+    # 5. حذف أي رمز غير حرف عربي/انجليزي/رقم
     text = re.sub(r"[^a-z0-9\u0621-\u064A]+", "", text)
 
-    # 5. حذف التكرارات الطويلة (مثال: cooool → col)
+    # 6. حذف التكرارات الطويلة (مثال: cooool → col)
     text = re.sub(r"(.)\1{2,}", r"\1", text)
 
     return text
+
 
 # --- فحص الكلمات المسيئة ---
 def contains_bad_word(message_content: str) -> bool:
@@ -248,3 +252,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
