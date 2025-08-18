@@ -51,6 +51,15 @@ async def keep_alive():
 async def before_keep_alive():
     await bot.wait_until_ready()
 
+# --- Periodic Bot Status ---
+@tasks.loop(minutes=5)
+async def update_status():
+    try:
+        activity = discord.Activity(type=discord.ActivityType.watching, name=f"{len(bot.guilds)} servers")
+        await bot.change_presence(activity=activity)
+    except Exception as e:
+        print(f"⚠️ Status update failed: {e}")
+
 # --- Bot Events ---
 @bot.event
 async def on_ready():
@@ -66,14 +75,20 @@ async def on_ready():
     print("🚀 Flask server started in background")
 
     keep_alive.start()
+    update_status.start()
 
 @bot.event
 async def on_message(message):
     if message.author.bot:
         return
 
+    # --- تجاهل المالك عند مراقبة الروابط والمنشن ---
+    if message.author == message.guild.owner:
+        await bot.process_commands(message)
+        return
+
     # --- مراقبة منشن المالك ---
-    if message.mention_everyone or message.guild.owner in message.mentions:
+    if message.guild.owner in message.mentions:
         user_id = message.author.id
         count = mention_warnings.get(user_id, 0) + 1
         mention_warnings[user_id] = count
@@ -87,7 +102,7 @@ async def on_message(message):
             await message.channel.send(embed=embed)
         else:
             try:
-                await message.author.timeout(duration=3600, reason="تكرار المنشن للمالك")  # 3600 ثانية = ساعة
+                await message.author.timeout(duration=3600, reason="تكرار المنشن للمالك")
                 embed = discord.Embed(
                     title="⛔ تم اسكاتك",
                     description=f"{message.author.mention} لقد تم اسكاتك لمدة ساعة بسبب تكرارك للمنشن.",
@@ -121,7 +136,7 @@ async def on_message(message):
                 await message.channel.send(embed=embed)
             else:
                 try:
-                    await message.author.timeout(duration=3600, reason="تكرار نشر الروابط")  # ساعة
+                    await message.author.timeout(duration=3600, reason="تكرار نشر الروابط")
                     embed = discord.Embed(
                         title="⛔ تم اسكاتك",
                         description=f"{message.author.mention} لقد تم اسكاتك لمدة ساعة بسبب تكرارك نشر الروابط.",
@@ -134,15 +149,6 @@ async def on_message(message):
 
     await bot.process_commands(message)
 
-# --- Periodic Bot Status (اختياري) ---
-@tasks.loop(minutes=5)
-async def update_status():
-    try:
-        activity = discord.Activity(type=discord.ActivityType.watching, name=f"{len(bot.guilds)} servers")
-        await bot.change_presence(activity=activity)
-    except Exception as e:
-        print(f"⚠️ Status update failed: {e}")
-
 # --- Run Bot ---
 async def main():
     async with bot:
@@ -150,4 +156,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
