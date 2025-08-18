@@ -41,7 +41,7 @@ async def keep_alive():
     global session
     if session:
         try:
-            url = "https://info-1-rngw.onrender.com"  # ضع رابط سيرفر البوت هنا إذا أردت
+            url = "https://sevenmaya.onrender.com"  # ضع رابط سيرفر البوت هنا إذا أردت
             async with session.get(url) as response:
                 print(f"💡 Keep-Alive ping status: {response.status}")
         except Exception as e:
@@ -150,3 +150,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
