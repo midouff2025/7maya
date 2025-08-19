@@ -7,7 +7,7 @@ import asyncio
 import aiohttp
 import re
 import unicodedata
-from datetime import timedelta
+from datetime import timedelta, datetime
 from discord.utils import utcnow
 from difflib import SequenceMatcher
 
@@ -39,6 +39,7 @@ session = None
 mention_warnings = {}
 link_warnings = {}
 badword_warnings = {}
+last_mention_time = {}  # لتخزين أوقات آخر منشن لكل مستخدم
 
 # --- قائمة الكلمات المسيئة ---
 BAD_WORDS = [
@@ -147,13 +148,13 @@ async def on_message(message):
         return
 
     user_id = message.author.id
+    now = datetime.utcnow()
 
-    # --- منشن المالك ---
+    # --- منشن المالك مع إعادة العد بعد 10 دقائق ---
     if message.guild.owner in message.mentions:
-        count = mention_warnings.get(user_id, 0) + 1
-        mention_warnings[user_id] = count
-
-        if count == 1:
+        last_time = last_mention_time.get(user_id)
+        if not last_time or (now - last_time) > timedelta(minutes=10):
+            last_mention_time[user_id] = now
             embed = discord.Embed(
                 title="⚠️ تحذير من المنشن",
                 description=f"{message.author.mention} لقد قمت بعمل منشن للمالك. المرة القادمة سيتم اسكاتك.",
@@ -163,7 +164,7 @@ async def on_message(message):
         else:
             try:
                 if not message.author.guild_permissions.administrator:
-                    until_time = utcnow() + timedelta(days=1)
+                    until_time = utcnow() + timedelta(hours=1)
                     await message.author.timeout(until_time, reason="تكرار منشن المالك")
                     embed = discord.Embed(
                         title="⛔ تم اسكاتك",
@@ -175,7 +176,7 @@ async def on_message(message):
                     await message.channel.send("⚠️ لا يمكن اسكات عضو بصلاحيات عالية.")
             except Exception as e:
                 await message.channel.send(f"⚠️ خطأ في الاسكات: {e}")
-            mention_warnings[user_id] = 0
+            last_mention_time[user_id] = None
 
     # --- الروابط ---
     if not any(role.permissions.manage_messages for role in message.author.roles):
@@ -228,7 +229,7 @@ async def on_message(message):
             await message.channel.send(embed=embed)
         else:
             try:
-                until_time = utcnow() + timedelta(hours=1)
+                until_time = utcnow() + timedelta(days=1)
                 await message.author.timeout(until_time, reason="استخدام كلمات مسيئة")
                 embed = discord.Embed(
                     title="⛔ تم اسكاتك",
@@ -249,6 +250,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
-
-
