@@ -184,6 +184,12 @@ async def on_message(message):
     # --- الروابط (1 ساعة) ---
     if not any(role.permissions.manage_messages for role in message.author.roles):
         if re.search(r'https?://\S+', message.content):
+            # حذف الرسالة مباشرة عند اكتشاف الرابط
+            try:
+                await message.delete()
+            except:
+                pass
+
             last_time = last_link_time.get(user_id)
             if not last_time or (now - last_time) > timedelta(hours=1):
                 last_link_time[user_id] = now
