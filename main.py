@@ -228,7 +228,7 @@ async def on_message(message):
             await message.channel.send(embed=embed)
         else:
             try:
-                until_time = utcnow() + timedelta(days=1)
+                until_time = utcnow() + timedelta(hours=1)
                 await message.author.timeout(until_time, reason="استخدام كلمات مسيئة")
                 embed = discord.Embed(
                     title="⛔ تم اسكاتك",
@@ -249,4 +249,5 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
