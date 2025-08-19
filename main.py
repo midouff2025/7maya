@@ -39,7 +39,10 @@ session = None
 mention_warnings = {}
 link_warnings = {}
 badword_warnings = {}
-last_mention_time = {}  # لتخزين أوقات آخر منشن لكل مستخدم
+
+last_mention_time = {}    # لتخزين آخر وقت منشن لكل مستخدم
+last_link_time = {}       # لتخزين آخر وقت نشر رابط
+last_badword_time = {}    # لتخزين آخر وقت استخدام كلمة مسيئة
 
 # --- قائمة الكلمات المسيئة ---
 BAD_WORDS = [
@@ -150,7 +153,7 @@ async def on_message(message):
     user_id = message.author.id
     now = datetime.utcnow()
 
-    # --- منشن المالك مع إعادة العد بعد 10 دقائق ---
+    # --- منشن المالك (10 دقائق) ---
     if message.guild.owner in message.mentions:
         last_time = last_mention_time.get(user_id)
         if not last_time or (now - last_time) > timedelta(minutes=10):
@@ -178,18 +181,12 @@ async def on_message(message):
                 await message.channel.send(f"⚠️ خطأ في الاسكات: {e}")
             last_mention_time[user_id] = None
 
-    # --- الروابط ---
+    # --- الروابط (1 ساعة) ---
     if not any(role.permissions.manage_messages for role in message.author.roles):
         if re.search(r'https?://\S+', message.content):
-            count = link_warnings.get(user_id, 0) + 1
-            link_warnings[user_id] = count
-
-            try:
-                await message.delete()
-            except:
-                pass
-
-            if count == 1:
+            last_time = last_link_time.get(user_id)
+            if not last_time or (now - last_time) > timedelta(hours=1):
+                last_link_time[user_id] = now
                 embed = discord.Embed(
                     title="⚠️ تحذير من الروابط",
                     description=f"{message.author.mention} نشر الروابط ممنوع. المرة القادمة سيتم اسكاتك.",
@@ -208,19 +205,18 @@ async def on_message(message):
                     await message.channel.send(embed=embed)
                 except Exception as e:
                     await message.channel.send(f"⚠️ خطأ في الاسكات: {e}")
-                link_warnings[user_id] = 0
+                last_link_time[user_id] = None
 
-    # --- الكلمات المسيئة ---
+    # --- الكلمات المسيئة (1 ساعة) ---
     if contains_bad_word(message.content):
         try:
             await message.delete()
         except:
             pass
 
-        count = badword_warnings.get(user_id, 0) + 1
-        badword_warnings[user_id] = count
-
-        if count == 1:
+        last_time = last_badword_time.get(user_id)
+        if not last_time or (now - last_time) > timedelta(hours=1):
+            last_badword_time[user_id] = now
             embed = discord.Embed(
                 title="⚠️ تحذير من الكلمات الحساسة",
                 description=f"{message.author.mention} لا تستخدم كلمات مسيئة. المرة القادمة سيتم اسكاتك.",
@@ -239,7 +235,7 @@ async def on_message(message):
                 await message.channel.send(embed=embed)
             except Exception as e:
                 await message.channel.send(f"⚠️ خطأ في الاسكات: {e}")
-            badword_warnings[user_id] = 0
+            last_badword_time[user_id] = None
 
     await bot.process_commands(message)
 
