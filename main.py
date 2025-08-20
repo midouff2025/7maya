@@ -57,24 +57,6 @@ BAD_WORDS = [
     "كس أمك","كس أختك","ابن القحبة","ابن الزانية","ابن العاهرة","ابن الحرام","ابن الزنا"
 ]
 
-# --- Normalize text ---
-REPLACEMENTS = {
-    "@":"a","4":"a","à":"a","á":"a","â":"a","ä":"a","å":"a","ª":"a",
-    "8":"b","ß":"b",
-    "(":"c","¢":"c","©":"c","ç":"c",
-    "3":"e","€":"e","&":"e","ë":"e","è":"e","é":"e","ê":"e",
-    "6":"g","9":"g",
-    "#":"h",
-    "!":"i","1":"i","¡":"i","|":"i","í":"i","î":"i","ï":"i","ì":"i",
-    "£":"l","¬":"l",
-    "0":"o","ò":"o","ó":"o","ô":"o","ö":"o","ø":"o","¤":"o",
-    "$":"s","5":"s","§":"s","š":"s",
-    "7":"t","+":"t","†":"t",
-    "2":"z","¥":"y",
-    "¶":"p",
-    "*":"","^":"","~":"","`":"","?":"","!":"","-":"","=":"",",":"",".":""
-}
-
 # --- خريطة الحروف العربية/إنجليزية للكلمات المختلطة ---
 MIXED_MAP = {
     "a": "ا", "A": "ا",
@@ -110,16 +92,36 @@ MIXED_MAP = {
     "4": "ا", "3": "ع", "7": "ح", "5": "خ", "2": "ء", "9": "ق", "0": "و", "$": "س", "@": "ا"
 }
 
+# --- Normalize text ---
+REPLACEMENTS = {
+    "@":"a","4":"a","à":"a","á":"a","â":"a","ä":"a","å":"a","ª":"a",
+    "8":"b","ß":"b",
+    "(":"c","¢":"c","©":"c","ç":"c",
+    "3":"e","€":"e","&":"e","ë":"e","è":"e","é":"e","ê":"e",
+    "6":"g","9":"g",
+    "#":"h",
+    "!":"i","1":"i","¡":"i","|":"i","í":"i","î":"i","ï":"i","ì":"i",
+    "£":"l","¬":"l",
+    "0":"o","ò":"o","ó":"o","ô":"o","ö":"o","ø":"o","¤":"o",
+    "$":"s","5":"s","§":"s","š":"s",
+    "7":"t","+":"t","†":"t",
+    "2":"z","¥":"y",
+    "¶":"p",
+    "*":"","^":"","~":"","`":"","?":"","!":"","-":"","=":"",",":"",".":""
+}
+
 def normalize_text(text: str) -> str:
     text = text.lower()
     text = text.replace("ـ", "")
-    for k, v in REPLACEMENTS.items():
-        text = text.replace(k, v)
-    # تحويل الأحرف المختلطة باستخدام MIXED_MAP
+    # تحويل الحروف المختلطة
     for k, v in MIXED_MAP.items():
         text = text.replace(k, v)
-    text = ''.join(c for c in unicodedata.normalize('NFKD', text) if not unicodedata.combining(c))
-    text = re.sub(r"[^a-z0-9\u0621-\u064A]+", "", text)
+    # تطبيق استبدالات إضافية
+    for k, v in REPLACEMENTS.items():
+        text = text.replace(k, v)
+    # إزالة أي رموز أو أرقام داخل الكلمات
+    text = re.sub(r"[^a-z\u0621-\u064A]+", "", text)
+    # إزالة تكرار الحروف
     text = re.sub(r"(.)\1{2,}", r"\1", text)
     return text
 
@@ -196,7 +198,7 @@ async def on_message(message):
     user_id = message.author.id
     now = datetime.utcnow()
 
-    # --- منشن المالك ---
+    # --- منشن المالك (10 دقائق) ---
     if message.guild.owner in message.mentions:
         last_time = last_mention_time.get(user_id)
         if not last_time or (now - last_time) > timedelta(minutes=10):
@@ -294,5 +296,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
-
