@@ -112,10 +112,10 @@ MIXED_MAP = {
 
 def normalize_text(text: str) -> str:
     text = text.lower()
-    text = text.replace("ـ", "")  # إزالة الوصلات
+    text = text.replace("ـ", "")
     for k, v in REPLACEMENTS.items():
         text = text.replace(k, v)
-    # استبدال الحروف المختلطة
+    # تحويل الأحرف المختلطة باستخدام MIXED_MAP
     for k, v in MIXED_MAP.items():
         text = text.replace(k, v)
     text = ''.join(c for c in unicodedata.normalize('NFKD', text) if not unicodedata.combining(c))
@@ -139,7 +139,7 @@ def contains_bad_word(message: str) -> bool:
     return False
 
 def contains_link(message: str) -> bool:
-    text = re.sub(r"\s+", "", message)  # إزالة المسافات
+    text = re.sub(r"\s+", "", message)
     return bool(re.search(r'https?://[^\s]+', text))
 
 # --- Keep-Alive ---
@@ -196,7 +196,7 @@ async def on_message(message):
     user_id = message.author.id
     now = datetime.utcnow()
 
-    # --- منشن المالك (10 دقائق) ---
+    # --- منشن المالك ---
     if message.guild.owner in message.mentions:
         last_time = last_mention_time.get(user_id)
         if not last_time or (now - last_time) > timedelta(minutes=10):
