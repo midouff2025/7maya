@@ -40,24 +40,24 @@ mention_warnings = {}
 link_warnings = {}
 badword_warnings = {}
 
-last_mention_time = {}    # لتخزين آخر وقت منشن لكل مستخدم
-last_link_time = {}       # لتخزين آخر وقت نشر رابط
-last_badword_time = {}    # لتخزين آخر وقت استخدام كلمة مسيئة
+last_mention_time = {}
+last_link_time = {}
+last_badword_time = {}
 
 # --- قائمة الكلمات المسيئة ---
 BAD_WORDS = [
-    "fuck","shit","bitch","asshole","bastard","dick","douche","cunt","fag","slut","قلوة","ختك","سوتيان","خرى","خرية","106",
+     "fuck", "7mar","shit","bitch","asshole","bastard","dick","douche","cunt","fag","slut","قلوة","ختك","سوتيان","خرى","خرية","106",
     "whore","prick","motherfucker","nigger","cock","pussy","twat","jerk","idiot","سوة","سوى","سخون","سليب","منوي","حواي",
     "9LAWI","9lawi","zok","zb","MOK","moron","dumbass","nik","nik mok","9A7BA","الطبون","طبون","زبور","الزبور",
     "zaml","كلب","نيك","نيك مك","كس","mok","نيك يماك","قحبة","ولد القحبة",
     "ابن الكلب","حمار","غبي","قذر","حقير","كافر","زب","زبي","قلاوي","زك",
     "الزك","نكمك","عطاي","حيوان","منيوك","خنزير","خائن","متسكع","أرعن",
     "حقيرة","لعينة","مشين","زانية","أوغاد","أهبل","لعين","منيك","ترمة",
-    "مترم","بقرة","شرموطة","الشرموطة","العاهرة","قليل الأدب","ابن الشرموطة",
+    "مترم","بقرة","شرموطة","الشرموطة","العاهرة","قليل الأدب","ابن الشرموطة","غيول",
     "كس أمك","كس أختك","ابن القحبة","ابن الزانية","ابن العاهرة","ابن الحرام","ابن الزنا"
 ]
 
-# --- Normalize text (استبدال الرموز + حذف التكرارات) ---
+# --- Normalize text ---
 REPLACEMENTS = {
     "@":"a","4":"a","à":"a","á":"a","â":"a","ä":"a","å":"a","ª":"a",
     "8":"b","ß":"b",
@@ -77,6 +77,7 @@ REPLACEMENTS = {
 
 def normalize_text(text: str) -> str:
     text = text.lower()
+    text = text.replace("ـ", "")  # إزالة الوصلات
     for k, v in REPLACEMENTS.items():
         text = text.replace(k, v)
     text = ''.join(c for c in unicodedata.normalize('NFKD', text) if not unicodedata.combining(c))
@@ -98,6 +99,10 @@ def contains_bad_word(message: str) -> bool:
             if is_similar(w, bad_norm):
                 return True
     return False
+
+def contains_link(message: str) -> bool:
+    text = re.sub(r"\s+", "", message)  # إزالة المسافات
+    return bool(re.search(r'https?://[^\s]+', text))
 
 # --- Keep-Alive ---
 @tasks.loop(minutes=1)
@@ -181,10 +186,9 @@ async def on_message(message):
                 await message.channel.send(f"⚠️ خطأ في الاسكات: {e}")
             last_mention_time[user_id] = None
 
-    # --- الروابط (1 ساعة) ---
+    # --- الروابط ---
     if not any(role.permissions.manage_messages for role in message.author.roles):
-        if re.search(r'https?://\S+', message.content):
-            # حذف الرسالة مباشرة عند اكتشاف الرابط
+        if contains_link(message.content):
             try:
                 await message.delete()
             except:
@@ -213,7 +217,7 @@ async def on_message(message):
                     await message.channel.send(f"⚠️ خطأ في الاسكات: {e}")
                 last_link_time[user_id] = None
 
-    # --- الكلمات المسيئة (1 ساعة) ---
+    # --- الكلمات المسيئة ---
     if contains_bad_word(message.content):
         try:
             await message.delete()
