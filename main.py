@@ -46,16 +46,19 @@ last_badword_time = {}
 
 # --- قائمة الكلمات المسيئة ---
 BAD_WORDS = [
-     "fuck", "7mar","shit","bitch","asshole","bastard","dick","douche","cunt","fag","slut","قلوة","ختك","سوتيان","خرى","خرية","106",
+    "fuck", "7mar","shit","bitch","asshole","bastard","dick","douche","cunt","fag","slut","قلوة","ختك","سوتيان","خرى","خرية","106",
     "whore","prick","motherfucker","nigger","cock","pussy","twat","jerk","idiot","سوة","سوى","سخون","سليب","منوي","حواي",
     "9LAWI","9lawi","zok","zb","MOK","moron","dumbass","nik","nik mok","9A7BA","الطبون","طبون","زبور","الزبور",
-  "no9ch","نقش","lkelb", "الكلب", "الحمار", "zaml","كلب","نيك","نيك مك","كس","mok","نيك يماك","قحبة","ولد القحبة","حتشون",
+    "no9ch","نقش","lkelb", "الكلب", "الحمار", "zaml","كلب","نيك","نيك مك","كس","mok","نيك يماك","قحبة","ولد القحبة","حتشون",
     "ابن الكلب","حمار","غبي","قذر","حقير","كافر","زب","زبي","قلاوي","زك","نحويك","زامل","طيز",
     "الزك","نكمك","عطاي","حيوان","منيوك","خنزير","خائن","متسكع","أرعن","شكوبي",
     "حقيرة","لعينة","مشين","زانية","أوغاد","أهبل","لعين","منيك","ترمة",
     "مترم","بقرة","شرموطة","الشرموطة","العاهرة","قليل الأدب","ابن الشرموطة","غيول",
     "كس أمك","كس أختك","ابن القحبة","ابن الزانية","ابن العاهرة","ابن الحرام","ابن الزنا"
 ]
+
+# --- قائمة الكلمات المسموحة (Whitelist) ---
+ALLOWED_WORDS = ["ok","اك", "اوكي", "yes", "تمام", "نعم"]
 
 # --- خريطة الحروف العربية/إنجليزية للكلمات المختلطة ---
 MIXED_MAP = {
@@ -130,6 +133,12 @@ def is_similar(a: str, b: str, threshold: float = 0.8) -> bool:
 
 def contains_bad_word(message: str) -> bool:
     text = normalize_text(message)
+
+    # --- تحقق من الكلمات المسموحة (Whitelist) ---
+    for allowed in ALLOWED_WORDS:
+        if normalize_text(allowed) == text:
+            return False
+
     for bad in BAD_WORDS:
         bad_norm = normalize_text(bad)
         if bad_norm in text:
@@ -296,6 +305,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
-
-
