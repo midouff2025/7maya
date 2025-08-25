@@ -36,11 +36,9 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 session = None
 
 # --- Warning Trackers ---
-mention_warnings = {}
 link_warnings = {}
 badword_warnings = {}
 
-last_mention_time = {}
 last_link_time = {}
 last_badword_time = {}
 
@@ -200,40 +198,8 @@ async def on_message(message):
     if message.author.bot:
         return
 
-    if message.author == message.guild.owner:
-        await bot.process_commands(message)
-        return
-
     user_id = message.author.id
     now = datetime.utcnow()
-
-    # --- منشن المالك (10 دقائق) ---
-    if message.guild.owner in message.mentions:
-        last_time = last_mention_time.get(user_id)
-        if not last_time or (now - last_time) > timedelta(minutes=10):
-            last_mention_time[user_id] = now
-            embed = discord.Embed(
-                title="⚠️ تحذير من المنشن",
-                description=f"{message.author.mention} لقد قمت بعمل منشن للمالك. المرة القادمة سيتم اسكاتك.",
-                color=0xFFFF00
-            )
-            await message.channel.send(embed=embed)
-        else:
-            try:
-                if not message.author.guild_permissions.administrator:
-                    until_time = utcnow() + timedelta(hours=1)
-                    await message.author.timeout(until_time, reason="تكرار منشن المالك")
-                    embed = discord.Embed(
-                        title="⛔ تم اسكاتك",
-                        description=f"{message.author.mention} لقد تم اسكاتك بسبب تكرارك للمنشن.",
-                        color=0xFF0000
-                    )
-                    await message.channel.send(embed=embed)
-                else:
-                    await message.channel.send("⚠️ لا يمكن اسكات عضو بصلاحيات عالية.")
-            except Exception as e:
-                await message.channel.send(f"⚠️ خطأ في الاسكات: {e}")
-            last_mention_time[user_id] = None
 
     # --- الروابط ---
     if not any(role.permissions.manage_messages for role in message.author.roles):
@@ -254,7 +220,7 @@ async def on_message(message):
                 await message.channel.send(embed=embed)
             else:
                 try:
-                    until_time = utcnow() + timedelta(days=1)
+                    until_time = utcnow() + timedelta(hours=1)
                     await message.author.timeout(until_time, reason="نشر روابط")
                     embed = discord.Embed(
                         title="⛔ تم اسكاتك",
@@ -284,7 +250,7 @@ async def on_message(message):
             await message.channel.send(embed=embed)
         else:
             try:
-                until_time = utcnow() + timedelta(days=1)
+                until_time = utcnow() + timedelta(hours=1)
                 await message.author.timeout(until_time, reason="استخدام كلمات مسيئة")
                 embed = discord.Embed(
                     title="⛔ تم اسكاتك",
