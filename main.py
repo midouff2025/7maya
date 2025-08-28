@@ -197,42 +197,43 @@ async def on_message(message):
     # --- الروابط ---
     if not any(role.permissions.manage_messages for role in message.author.roles):
         if contains_link(message.content):
-            # غرفة خاصة: حذف الرابط بعد 5 ثواني فقط
+            # الغرفة الخاصة: حذف بعد 5 ثواني فقط
             if message.channel.id == 1403040565137899733:
                 try:
                     await asyncio.sleep(5)
                     await message.delete()
                 except:
                     pass
-            else:
-                # النظام العادي لباقي الغرف
-                try:
-                    await message.delete()
-                except:
-                    pass
+                return  # ⬅️ إيقاف التنفيذ هنا (لا تحذير ولا Timeout)
 
-                last_time = last_link_time.get(user_id)
-                if not last_time or (now - last_time) > timedelta(hours=1):
-                    last_link_time[user_id] = now
+            # باقي الغرف
+            try:
+                await message.delete()
+            except:
+                pass
+
+            last_time = last_link_time.get(user_id)
+            if not last_time or (now - last_time) > timedelta(hours=1):
+                last_link_time[user_id] = now
+                embed = discord.Embed(
+                    title="⚠️ تحذير من الروابط",
+                    description=f"{message.author.mention} نشر الروابط ممنوع. المرة القادمة سيتم اسكاتك.",
+                    color=0xFFFF00
+                )
+                await message.channel.send(embed=embed)
+            else:
+                try:
+                    until_time = utcnow() + timedelta(hours=1)
+                    await message.author.timeout(until_time, reason="نشر روابط")
                     embed = discord.Embed(
-                        title="⚠️ تحذير من الروابط",
-                        description=f"{message.author.mention} نشر الروابط ممنوع. المرة القادمة سيتم اسكاتك.",
-                        color=0xFFFF00
+                        title="⛔ تم اسكاتك",
+                        description=f"{message.author.mention} تم اسكاتك بسبب تكرار نشر الروابط.",
+                        color=0xFF0000
                     )
                     await message.channel.send(embed=embed)
-                else:
-                    try:
-                        until_time = utcnow() + timedelta(hours=1)
-                        await message.author.timeout(until_time, reason="نشر روابط")
-                        embed = discord.Embed(
-                            title="⛔ تم اسكاتك",
-                            description=f"{message.author.mention} تم اسكاتك بسبب تكرار نشر الروابط.",
-                            color=0xFF0000
-                        )
-                        await message.channel.send(embed=embed)
-                    except Exception as e:
-                        await message.channel.send(f"⚠️ خطأ في الاسكات: {e}")
-                    last_link_time[user_id] = None
+                except Exception as e:
+                    await message.channel.send(f"⚠️ خطأ في الاسكات: {e}")
+                last_link_time[user_id] = None
 
     # --- الكلمات المسيئة ---
     if contains_bad_word(message.content):
