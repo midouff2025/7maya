@@ -56,7 +56,7 @@ async def keep_alive():
     global session
     if session:
         try:
-            url = "https://sevenmaya-celb.onrender.com"
+            url = "https://boooooooooot.onrender.com"
             async with session.get(url) as response:
                 print(f"💡 Keep-Alive ping status: {response.status}")
         except Exception as e:
@@ -150,3 +150,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
