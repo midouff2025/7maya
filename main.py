@@ -7,10 +7,14 @@ import re
 import unicodedata
 from datetime import timedelta, datetime
 from discord.utils import utcnow
+from flask import Flask
+
+# --- قراءة التوكن من Environment ---
+TOKEN = os.getenv("DISCORD_BOT_TOKEN")
+if not TOKEN:
+    raise ValueError("❌ DISCORD_BOT_TOKEN environment variable not set!")
 
 # --- Discord Bot Setup ---
-TOKEN = os.getenv("DISCORD_BOT_TOKEN")
-
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
@@ -35,7 +39,6 @@ def normalize_text(text: str) -> str:
 def contains_link(message: discord.Message) -> bool:
     content = normalize_text(message.content)
 
-    # 🔓 السماح الكامل لسبوتيفاي
     spotify_domains = [
         "spotify.com",
         "open.spotify.com",
@@ -43,33 +46,27 @@ def contains_link(message: discord.Message) -> bool:
     ]
 
     if any(domain in content for domain in spotify_domains):
-        return False  # مسموح بالكامل
+        return False
 
-    # 1️⃣ http / https
     if re.search(r"https?://", content):
         return True
 
-    # 2️⃣ www
     if "www." in content:
         return True
 
-    # 3️⃣ أي دومين مباشر بدون http
     domain_pattern = r"[a-z0-9\-]+\.(com|net|org|gg|io|me|co|xyz|info|app|site|store|online)"
     if re.search(domain_pattern, content):
         return True
 
-    # 4️⃣ دعوات ديسكورد
     if "discord.gg" in content or "discord.com/invite" in content:
         return True
 
-    # 5️⃣ روابط داخل Embed (مع استثناء سبوتيفاي)
     for embed in message.embeds:
         if embed.url:
             embed_url = normalize_text(embed.url)
             if not any(domain in embed_url for domain in spotify_domains):
                 return True
 
-    # 6️⃣ روابط داخل المرفقات (اسم الملف)
     for attachment in message.attachments:
         filename = normalize_text(attachment.filename)
         if re.search(domain_pattern, filename):
@@ -106,11 +103,8 @@ async def on_message(message):
     user_id = message.author.id
     now = datetime.utcnow()
 
-    # --- الروابط فقط ---
     if not any(role.permissions.manage_messages for role in message.author.roles):
         if contains_link(message):
-
-            # الغرفة الخاصة: حذف بعد 5 ثواني فقط
             if message.channel.id == 1403040565137899733:
                 try:
                     await asyncio.sleep(5)
@@ -119,7 +113,6 @@ async def on_message(message):
                     pass
                 return
 
-            # باقي الغرف
             try:
                 await message.delete()
             except:
@@ -150,10 +143,24 @@ async def on_message(message):
 
     await bot.process_commands(message)
 
-# --- Run Bot ---
-async def main():
+# --- Flask dummy server for Render ---
+app = Flask("")
+
+@app.route("/")
+def home():
+    return "Bot is running ✅"
+
+# --- Run Bot and Flask ---
+async def start_bot():
     async with bot:
         await bot.start(TOKEN)
 
+def run():
+    loop = asyncio.get_event_loop()
+    loop.create_task(start_bot())
+    # فتح Flask على PORT الذي يوفره Render
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    run()
