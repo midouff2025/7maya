@@ -9,16 +9,17 @@ from datetime import timedelta, datetime
 from discord.utils import utcnow
 from flask import Flask
 import nest_asyncio
+import threading
 
-# --- حل تعارض asyncio مع Flask ---
+# حل تعارض asyncio مع Flask
 nest_asyncio.apply()
 
-# --- قراءة التوكن من Environment ---
+# قراءة التوكن من Environment
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 if not TOKEN:
     raise ValueError("❌ DISCORD_BOT_TOKEN environment variable not set!")
 
-# --- Discord Bot Setup ---
+# Discord Bot Setup
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
@@ -28,7 +29,6 @@ session = None
 link_warnings = {}
 last_link_time = {}
 
-# --- Normalize text ---
 def normalize_text(text: str) -> str:
     text = unicodedata.normalize("NFKD", text)
     text = text.lower()
@@ -37,7 +37,6 @@ def normalize_text(text: str) -> str:
     text = re.sub(r"(.)\1{2,}", r"\1", text)
     return text
 
-# --- كشف روابط مع السماح لسبوتيفاي ---
 def contains_link(message: discord.Message) -> bool:
     content = normalize_text(message.content)
     spotify_domains = ["spotify.com","open.spotify.com","spotify.link"]
@@ -57,7 +56,6 @@ def contains_link(message: discord.Message) -> bool:
             return True
     return False
 
-# --- تحديث الحالة ---
 @tasks.loop(minutes=5)
 async def update_status():
     try:
@@ -66,7 +64,6 @@ async def update_status():
     except Exception as e:
         print(f"⚠️ Status update failed: {e}")
 
-# --- أحداث البوت ---
 @bot.event
 async def on_ready():
     global session
@@ -109,26 +106,19 @@ async def on_message(message):
                 last_link_time[user_id] = None
     await bot.process_commands(message)
 
-# --- Flask server ---
+# Flask server
 app = Flask("")
 
 @app.route("/")
 def home():
     return "Bot is running ✅"
 
-# --- تشغيل البوت و Flask ---
-async def start_bot():
-    async with bot:
-        await bot.start(TOKEN)
+def run_flask():
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
 
-def run():
-    try:
-        loop = asyncio.get_event_loop()
-        loop.create_task(start_bot())
-        port = int(os.environ.get("PORT", 10000))
-        app.run(host="0.0.0.0", port=port)
-    except Exception as e:
-        print("❌ Exception during run:", e)
+# تشغيل Flask في Thread مستقل
+threading.Thread(target=run_flask).start()
 
-if __name__ == "__main__":
-    run()
+# تشغيل البوت
+asyncio.run(bot.start(TOKEN))
