@@ -9,7 +9,7 @@ from datetime import timedelta, datetime
 from discord.utils import utcnow
 
 # --- Discord Bot Setup ---
-TOKEN = "MTQwNzA0MTYwNDg3ODg2NDU0OA.GiIEuj.XB1zeEpEoUnvq9430Yabd8ukY0SCusMDBY63u4"  # ضع التوكن هنا
+TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 
 intents = discord.Intents.default()
 intents.message_content = True
