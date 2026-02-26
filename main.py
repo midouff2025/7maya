@@ -39,10 +39,14 @@ class MyBot(commands.Bot):
         self.last_link_time = {}
 
     async def setup_hook(self):
+        # إنشاء جلسة aiohttp واحدة
         self.session = aiohttp.ClientSession()
+        # تشغيل Flask في Thread منفصل
         threading.Thread(target=run_flask, daemon=True).start()
         print("🚀 Flask server started in background")
+        # بدء المهام الدورية
         self.update_status.start()
+        self.keep_alive.start()  # 🔹 ping دوري لمنع النوم
 
     async def close(self):
         if self.session:
@@ -65,6 +69,22 @@ class MyBot(commands.Bot):
     async def before_status_update(self):
         await self.wait_until_ready()
 
+    # --- Keep-Alive Ping دوري لمنع النوم ---
+    @tasks.loop(minutes=1)
+    async def keep_alive(self):
+        if self.session:
+            try:
+                url = os.environ.get("https://sevenmaya-6.onrender.com")  # ضع هنا رابط الصفحة التي تريد ping لها
+                if url:
+                    async with self.session.get(url) as resp:
+                        print(f"💡 KeepAlive ping: {resp.status}")
+            except Exception as e:
+                print(f"⚠️ KeepAlive error: {e}")
+
+    @keep_alive.before_loop
+    async def before_keep_alive(self):
+        await self.wait_until_ready()
+
     # --- تنظيف النص ---
     def normalize_text(self, text: str) -> str:
         text = unicodedata.normalize("NFKD", text)
@@ -74,106 +94,68 @@ class MyBot(commands.Bot):
         return text
 
     # --- كشف الروابط ---
- # --- تنظيف النص بشكل أقوى ---
-def normalize_text(self, text: str) -> str:
-    # إزالة التشكيل والحروف المزخرفة
-    text = unicodedata.normalize("NFKD", text)
-    text = "".join(c for c in text if not unicodedata.combining(c))
+    def contains_link(self, message: discord.Message) -> bool:
+        spotify_whitelist = ["spotify.com", "open.spotify.com", "spotify.link"]
+        shorteners = [
+            "bit.ly", "tinyurl.com", "t.co",
+            "goo.gl", "is.gd", "cutt.ly",
+            "rebrand.ly", "shorturl.at"
+        ]
 
-    text = text.lower()
+        full_content = message.content
+        for embed in message.embeds:
+            if embed.url:
+                full_content += " " + embed.url
+            if embed.description:
+                full_content += " " + embed.description
+            if embed.title:
+                full_content += " " + embed.title
 
-    # إزالة الفواصل بين الحروف مثل h t t p
-    text = re.sub(r"\s+", "", text)
+        content = self.normalize_text(full_content)
 
-    # إزالة التكرار المبالغ فيه
-    text = re.sub(r"(.)\1{2,}", r"\1", text)
+        # Markdown links
+        markdown_links = re.findall(r"\[.*?\]\((.*?)\)", full_content)
+        for link in markdown_links:
+            link_norm = self.normalize_text(link)
+            if not any(domain in link_norm for domain in spotify_whitelist):
+                return True
 
-    return text
-
-
-# --- نظام كشف قوي ---
-def contains_link(self, message: discord.Message) -> bool:
-
-    spotify_whitelist = ["spotify.com", "open.spotify.com", "spotify.link"]
-    shorteners = [
-        "bit.ly", "tinyurl.com", "t.co",
-        "goo.gl", "is.gd", "cutt.ly",
-        "rebrand.ly", "shorturl.at"
-    ]
-
-    # دمج كل المحتوى الممكن
-    full_content = message.content
-
-    for embed in message.embeds:
-        if embed.url:
-            full_content += " " + embed.url
-        if embed.description:
-            full_content += " " + embed.description
-        if embed.title:
-            full_content += " " + embed.title
-
-    content = self.normalize_text(full_content)
-
-    # ---------------------------
-    # 1️⃣ Markdown links [text](url)
-    # ---------------------------
-    markdown_links = re.findall(r"\[.*?\]\((.*?)\)", full_content)
-    for link in markdown_links:
-        link_norm = self.normalize_text(link)
-        if not any(domain in link_norm for domain in spotify_whitelist):
+        # http متقطع
+        if re.search(r"h\s*t\s*t\s*p\s*s?\s*:\s*/\s*/", full_content.lower()):
             return True
 
-    # ---------------------------
-    # 2️⃣ http متقطع
-    # ---------------------------
-    if re.search(r"h\s*t\s*t\s*p\s*s?\s*:\s*/\s*/", full_content.lower()):
-        return True
-
-    # ---------------------------
-    # 3️⃣ www متقطع
-    # ---------------------------
-    if re.search(r"w\s*w\s*w\s*\.", full_content.lower()):
-        return True
-
-    # ---------------------------
-    # 4️⃣ روابط عادية
-    # ---------------------------
-    if re.search(r"https?://", content):
-        if not any(domain in content for domain in spotify_whitelist):
+        # www متقطع
+        if re.search(r"w\s*w\s*w\s*\.", full_content.lower()):
             return True
 
-    # ---------------------------
-    # 5️⃣ دومينات عامة
-    # ---------------------------
-    domain_pattern = r"[a-z0-9\-]+\.(com|net|org|gg|io|me|co|xyz|info|app|site|store|online|tech|dev|link)"
-    if re.search(domain_pattern, content):
-        if not any(domain in content for domain in spotify_whitelist):
+        # روابط عادية
+        if re.search(r"https?://", content):
+            if not any(domain in content for domain in spotify_whitelist):
+                return True
+
+        # دومينات عامة
+        domain_pattern = r"[a-z0-9\-]+\.(com|net|org|gg|io|me|co|xyz|info|app|site|store|online|tech|dev|link)"
+        if re.search(domain_pattern, content):
+            if not any(domain in content for domain in spotify_whitelist):
+                return True
+
+        # دعوات ديسكورد مخفية
+        if re.search(r"d\s*i\s*s\s*c\s*o\s*r\s*d\s*\.\s*g\s*g", full_content.lower()):
+            return True
+        if "discord.com/invite" in content:
             return True
 
-    # ---------------------------
-    # 6️⃣ دعوات ديسكورد مخفية
-    # ---------------------------
-    if re.search(r"d\s*i\s*s\s*c\s*o\s*r\s*d\s*\.\s*g\s*g", full_content.lower()):
-        return True
-
-    if "discord.com/invite" in content:
-        return True
-
-    # ---------------------------
-    # 7️⃣ Shorteners
-    # ---------------------------
-    if any(short in content for short in shorteners):
-        return True
-
-    # ---------------------------
-    # 8️⃣ فحص المرفقات
-    # ---------------------------
-    for attachment in message.attachments:
-        filename = self.normalize_text(attachment.filename)
-        if re.search(domain_pattern, filename):
+        # Shorteners
+        if any(short in content for short in shorteners):
             return True
 
-    return False
+        # فحص المرفقات
+        for attachment in message.attachments:
+            filename = self.normalize_text(attachment.filename)
+            if re.search(domain_pattern, filename):
+                return True
+
+        return False
 
     # --- معالجة الرسائل ---
     async def on_message(self, message):
@@ -181,11 +163,10 @@ def contains_link(self, message: discord.Message) -> bool:
             return
 
         user_id = message.author.id
-        now = datetime.now(UTC)  # ✅ إصلاح المشكلة هنا
+        now = datetime.now(UTC)
 
         if not any(role.permissions.manage_messages for role in message.author.roles):
             if self.contains_link(message):
-
                 if message.channel.id == ALLOWED_CHANNEL_ID:
                     try:
                         await asyncio.sleep(5)
@@ -203,33 +184,27 @@ def contains_link(self, message: discord.Message) -> bool:
 
                 if not last_time or (now - last_time) > timedelta(hours=1):
                     self.last_link_time[user_id] = now
-
                     embed = discord.Embed(
                         title="⚠️ تحذير من الروابط",
                         description=f"{message.author.mention} نشر الروابط ممنوع. المرة القادمة سيتم اسكاتك.",
                         color=0xFFFF00
                     )
                     await message.channel.send(embed=embed)
-
                 else:
                     try:
                         until_time = utcnow() + timedelta(hours=1)
                         await message.author.timeout(until_time, reason="نشر روابط")
-
                         embed = discord.Embed(
                             title="⛔ تم اسكاتك",
                             description=f"{message.author.mention} تم اسكاتك بسبب تكرار نشر الروابط.",
                             color=0xFF0000
                         )
                         await message.channel.send(embed=embed)
-
                     except Exception as e:
                         print("⚠️ Timeout error:", e)
-
                     self.last_link_time[user_id] = None
 
         await self.process_commands(message)
-
 
 # --- تشغيل البوت ---
 bot = MyBot()
