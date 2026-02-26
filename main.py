@@ -70,16 +70,15 @@ class MyBot(commands.Bot):
         await self.wait_until_ready()
 
     # --- Keep-Alive Ping دوري لمنع النوم ---
-    @tasks.loop(minutes=1)
-    async def keep_alive(self):
-        if self.session:
-            try:
-                url = os.environ.get("https://sevenmaya-6.onrender.com")  # ضع هنا رابط الصفحة التي تريد ping لها
-                if url:
-                    async with self.session.get(url) as resp:
-                        print(f"💡 KeepAlive ping: {resp.status}")
-            except Exception as e:
-                print(f"⚠️ KeepAlive error: {e}")
+ @tasks.loop(minutes=1)
+async def keep_alive(self):
+    if self.session:
+        try:
+            url = "https://sevenmaya-6.onrender.com"  # رابطك المباشر
+            async with self.session.get(url) as resp:
+                print(f"💡 KeepAlive ping: {resp.status}")
+        except Exception as e:
+            print(f"⚠️ KeepAlive error: {e}")
 
     @keep_alive.before_loop
     async def before_keep_alive(self):
@@ -215,3 +214,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
