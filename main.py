@@ -6,15 +6,14 @@ import os
 import asyncio
 import aiohttp
 import re
+import unicodedata
 from datetime import datetime, timedelta, UTC
 from discord.utils import utcnow
 
-# ==============================
-# Flask Keep-Alive
-# ==============================
+# ---------------- Flask Keep Alive ---------------- #
 
 app = Flask(__name__)
-ALLOWED_CHANNEL_ID = 1403040565137899733  # غيره لو احتجت
+ALLOWED_CHANNEL_ID = 1403040565137899733
 bot_name = "Loading..."
 
 @app.route("/")
@@ -25,15 +24,14 @@ def run_flask():
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
 
-# ==============================
-# Discord Bot Setup
-# ==============================
+# ---------------- Discord Setup ---------------- #
 
 TOKEN = os.environ.get("DISCORD_BOT_TOKEN")
 if not TOKEN:
-    raise ValueError("Missing DISCORD_BOT_TOKEN")
+    raise ValueError("Missing DISCORD_BOT_TOKEN in environment variables")
 
 class MyBot(commands.Bot):
+
     def __init__(self):
         intents = discord.Intents.default()
         intents.message_content = True
@@ -45,9 +43,6 @@ class MyBot(commands.Bot):
         self.last_link_time = {}
 
     async def setup_hook(self):
-        global bot_name
-        bot_name = self.user.name if self.user else "Bot"
-
         self.session = aiohttp.ClientSession()
         threading.Thread(target=run_flask, daemon=True).start()
 
@@ -59,9 +54,7 @@ class MyBot(commands.Bot):
             await self.session.close()
         await super().close()
 
-    # ==============================
-    # Status Update
-    # ==============================
+    # ---------------- Status ---------------- #
 
     @tasks.loop(minutes=5)
     async def update_status(self):
@@ -75,15 +68,13 @@ class MyBot(commands.Bot):
     async def before_status_update(self):
         await self.wait_until_ready()
 
-    # ==============================
-    # Keep Alive
-    # ==============================
+    # ---------------- Keep Alive ---------------- #
 
-    @tasks.loop(minutes=5)
+    @tasks.loop(minutes=2)
     async def keep_alive(self):
         if self.session:
             try:
-                url = "https://sevenmaya-6.onrender.com"  # ضع رابطك
+                url = "https://sevenmaya-6.onrender.com"
                 async with self.session.get(url):
                     pass
             except:
@@ -93,144 +84,112 @@ class MyBot(commands.Bot):
     async def before_keep_alive(self):
         await self.wait_until_ready()
 
-    # ==============================
-    # Link Detection
-    # ==============================
+    # ---------------- Normalize ---------------- #
+
+    def normalize_text(self, text: str) -> str:
+        text = unicodedata.normalize("NFKD", text)
+        text = text.lower().replace("ـ", "")
+        text = re.sub(r"\s+", "", text)
+        text = re.sub(r"(.)\1{2,}", r"\1", text)
+        return text
+
+    # ---------------- Link Detection ---------------- #
 
     def contains_link(self, message: discord.Message) -> bool:
+
         spotify_whitelist = ["spotify.com", "open.spotify.com", "spotify.link"]
 
         full_content = message.content
-
         for embed in message.embeds:
             if embed.url:
                 full_content += " " + embed.url
-            if embed.description:
-                full_content += " " + embed.description
-            if embed.title:
-                full_content += " " + embed.title
 
-        full_lower = full_content.lower()
+        content = self.normalize_text(full_content)
 
-        # HTTP Links
-        urls = re.findall(r"https?://[^\s]+", full_content)
-        for url in urls:
-            if not any(domain in url.lower() for domain in spotify_whitelist):
+        if re.search(r"https?://", content):
+            if not any(domain in content for domain in spotify_whitelist):
                 return True
 
-        # Markdown Links
-        markdown_links = re.findall(r"\[.*?\]\((.*?)\)", full_content)
-        for link in markdown_links:
-            if not any(domain in link.lower() for domain in spotify_whitelist):
+        if re.search(r"[a-z0-9\-]+\.(com|net|org|gg|io|me|xyz|link)", content):
+            if not any(domain in content for domain in spotify_whitelist):
                 return True
 
-        # Domain without http
-        domain_pattern = r"\b[a-zA-Z0-9-]+\.(com|net|org|gg|io|me|co|xyz|info|app|site|store|online|tech|dev|link)\b"
-        matches = re.findall(domain_pattern, full_lower)
-        if matches:
-            if not any(domain in full_lower for domain in spotify_whitelist):
-                return True
-
-        # Discord Invites
-        if "discord.gg" in full_lower or "discord.com/invite" in full_lower:
-            return True
-
-        # Shorteners
-        shorteners = [
-            "bit.ly", "tinyurl.com", "t.co",
-            "goo.gl", "is.gd", "cutt.ly",
-            "rebrand.ly", "shorturl.at"
-        ]
-        if any(short in full_lower for short in shorteners):
+        if "discord.gg" in content or "discord.com/invite" in content:
             return True
 
         return False
 
-    # ==============================
-    # Message Handler
-    # ==============================
+    # ---------------- Message Handler ---------------- #
 
-    async def on_message(self, message: discord.Message):
-        if message.author.bot or not message.guild:
+    async def on_message(self, message):
+
+        if message.author.bot:
             return
 
-        # Allow moderators
-        if message.author.guild_permissions.manage_messages:
-            await self.process_commands(message)
-            return
-
-        # No link detected
-        if not self.contains_link(message):
-            await self.process_commands(message)
-            return
-
-        # Allowed channel
         if message.channel.id == ALLOWED_CHANNEL_ID:
             await self.process_commands(message)
             return
 
-        # Delete message
-        try:
-            await message.delete()
-        except:
-            pass
+        if message.author.guild_permissions.manage_messages:
+            await self.process_commands(message)
+            return
+
+        if not self.contains_link(message):
+            await self.process_commands(message)
+            return
+
+        await message.delete()
 
         user_id = message.author.id
         now = datetime.now(UTC)
         last_time = self.last_link_time.get(user_id)
 
-        # ==========================
-        # First Warning
-        # ==========================
-        if not last_time:
+        # -------- First Warning -------- #
+
+        if not last_time or (now - last_time) > timedelta(hours=1):
+
             self.last_link_time[user_id] = now
 
             embed = discord.Embed(
                 title="⚠️ تحذير | Warning",
-                description=f"""**{message.author.mention} نشر الروابط ممنوع.**
-Links are not allowed.
-
-المرة القادمة سيتم اسكاتك لمدة ساعة.
-Next time you will be muted for 1 hour.""",
-                color=0xF1C40F
+                description=(
+                    f"**{message.author.mention} نشر الروابط ممنوع.**\n"
+                    f"**Posting links is not allowed.**\n\n"
+                    f"المرة القادمة سيتم اسكاتك لمدة ساعة.\n"
+                    f"You will be muted for 1 hour if repeated."
+                ),
+                color=0xFFFF00
             )
 
             await message.channel.send(embed=embed)
             return
 
-        # ==========================
-        # Timeout
-        # ==========================
-        if (now - last_time) <= timedelta(hours=1):
-            try:
-                until_time = utcnow() + timedelta(hours=1)
-                await message.author.timeout(until_time, reason="Repeated link posting")
+        # -------- Timeout -------- #
 
-                embed = discord.Embed(
-                    title="⛔ تم اسكاتك | You Have Been Muted",
-                    description=f"""**{message.author.mention} تم اسكاتك لمدة ساعة.**
-You have been muted for 1 hour.
+        try:
+            until = utcnow() + timedelta(hours=1)
+            await message.author.timeout(until, reason="Posting links repeatedly")
 
-بسبب تكرار نشر الروابط.
-For repeatedly posting links.""",
-                    color=0xE74C3C
-                )
+            embed = discord.Embed(
+                title="⛔ تم اسكاتك | You Have Been Muted",
+                description=(
+                    f"{message.author.mention}\n\n"
+                    f"تم اسكاتك لمدة ساعة بسبب تكرار نشر الروابط.\n"
+                    f"You have been muted for 1 hour for repeated link posting."
+                ),
+                color=0xFF0000
+            )
 
-                await message.channel.send(embed=embed)
+            await message.channel.send(embed=embed)
 
-            except Exception as e:
-                print("Timeout error:", e)
+        except Exception as e:
+            print("Timeout error:", e)
 
-            del self.last_link_time[user_id]
-
-        else:
-            self.last_link_time[user_id] = now
+        self.last_link_time[user_id] = None
 
         await self.process_commands(message)
 
-# ==============================
-# Run Bot
-# ==============================
+# ---------------- Run ---------------- #
 
 bot = MyBot()
 
