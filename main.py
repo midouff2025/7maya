@@ -19,10 +19,8 @@ bot_name = "Loading..."
 def home():
     return f"Bot {bot_name} is operational ✅"
 
-def run_flask(ready_event: threading.Event):
+def run_flask():
     port = int(os.environ.get("PORT", 10000))
-    # بعد تشغيل Flask نعلم البوت أنه جاهز
-    ready_event.set()
     app.run(host="0.0.0.0", port=port)
 
 # --- Discord Bot Setup ---
@@ -38,19 +36,15 @@ class MyBot(commands.Bot):
         super().__init__(command_prefix="!", intents=intents)
         self.session = None
         self.last_link_time = {}
-        self.flask_ready = threading.Event()
 
     async def setup_hook(self):
         # إنشاء جلسة aiohttp واحدة
         self.session = aiohttp.ClientSession()
         # تشغيل Flask في Thread منفصل
-        threading.Thread(target=run_flask, args=(self.flask_ready,), daemon=True).start()
-        # ننتظر حتى Flask جاهز
-        await asyncio.to_thread(self.flask_ready.wait)
-        print("🚀 Flask server started and ready")
-        # بدء المهام الدورية
+        threading.Thread(target=run_flask, daemon=True).start()
+        print("🚀 Flask server started in background")
+        # بدء المهام الدورية لتحديث الحالة
         self.update_status.start()
-        self.keep_alive.start()
 
     async def close(self):
         if self.session:
@@ -58,7 +52,7 @@ class MyBot(commands.Bot):
         await super().close()
 
 # --- تحديث الحالة ---
-@tasks.loop(minutes=10)  # كل 10 دقائق لتقليل الضغط
+@tasks.loop(minutes=10)
 async def update_status(self):
     try:
         activity = discord.Activity(
@@ -72,23 +66,6 @@ async def update_status(self):
 @update_status.before_loop
 async def before_status_update(self):
     await self.wait_until_ready()
-
-# --- Keep-Alive Ping دوري ---
-@tasks.loop(minutes=10)  # كل 10 دقائق
-async def keep_alive(self):
-    if self.session:
-        try:
-            url = "https://sevenmaya-7.onrender.com"  # رابط Flask المباشر
-            async with self.session.get(url) as resp:
-                print(f"💡 KeepAlive ping: {resp.status}")
-        except Exception as e:
-            print(f"⚠️ KeepAlive error: {e}")
-
-@keep_alive.before_loop
-async def before_keep_alive(self):
-    await self.wait_until_ready()
-    # تأكد أن Flask جاهز قبل بدء KeepAlive
-    await asyncio.to_thread(bot.flask_ready.wait)
 
 # --- تنظيف النص ---
 def normalize_text(self, text: str) -> str:
