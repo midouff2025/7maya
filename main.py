@@ -129,7 +129,7 @@ class MyBot(commands.Bot):
                         await message.author.timeout(until_time, reason="نشر روابط")
                         embed = discord.Embed(
                             title="⛔ تم اسكاتك",
-                            description=f"{message.author.mention} تم اسكاتك بسبب تكرار نشر الروابط.",
+                            description=f"{message.author.mention} تم اسكاتك بسبب تكرار نشر الروابط",
                             color=0xFF0000
                         )
                         await message.channel.send(embed=embed)
@@ -149,3 +149,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
