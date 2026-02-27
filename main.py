@@ -19,8 +19,10 @@ bot_name = "Loading..."
 def home():
     return f"Bot {bot_name} is operational ✅"
 
-def run_flask():
+def run_flask(ready_event: threading.Event):
     port = int(os.environ.get("PORT", 10000))
+    # بعد تشغيل Flask نعلم البوت أنه جاهز
+    ready_event.set()
     app.run(host="0.0.0.0", port=port)
 
 # --- Discord Bot Setup ---
@@ -36,25 +38,27 @@ class MyBot(commands.Bot):
         super().__init__(command_prefix="!", intents=intents)
         self.session = None
         self.last_link_time = {}
+        self.flask_ready = threading.Event()
 
     async def setup_hook(self):
         # إنشاء جلسة aiohttp واحدة
         self.session = aiohttp.ClientSession()
         # تشغيل Flask في Thread منفصل
-        threading.Thread(target=run_flask, daemon=True).start()
-        print("🚀 Flask server started in background")
+        threading.Thread(target=run_flask, args=(self.flask_ready,), daemon=True).start()
+        # ننتظر حتى Flask جاهز
+        await asyncio.to_thread(self.flask_ready.wait)
+        print("🚀 Flask server started and ready")
         # بدء المهام الدورية
         self.update_status.start()
         self.keep_alive.start()
 
-    # 🔹 ping دوري لمنع النوم
     async def close(self):
         if self.session:
             await self.session.close()
         await super().close()
 
 # --- تحديث الحالة ---
-@tasks.loop(minutes=5)
+@tasks.loop(minutes=10)  # كل 10 دقائق لتقليل الضغط
 async def update_status(self):
     try:
         activity = discord.Activity(
@@ -69,12 +73,12 @@ async def update_status(self):
 async def before_status_update(self):
     await self.wait_until_ready()
 
-# --- Keep-Alive Ping دوري لمنع النوم ---
-@tasks.loop(minutes=1)
+# --- Keep-Alive Ping دوري ---
+@tasks.loop(minutes=10)  # كل 10 دقائق
 async def keep_alive(self):
     if self.session:
         try:
-            url = "https://sevenmaya-6.onrender.com" # رابطك المباشر
+            url = "https://sevenmaya-7.onrender.com"  # رابط Flask المباشر
             async with self.session.get(url) as resp:
                 print(f"💡 KeepAlive ping: {resp.status}")
         except Exception as e:
@@ -83,6 +87,8 @@ async def keep_alive(self):
 @keep_alive.before_loop
 async def before_keep_alive(self):
     await self.wait_until_ready()
+    # تأكد أن Flask جاهز قبل بدء KeepAlive
+    await asyncio.to_thread(bot.flask_ready.wait)
 
 # --- تنظيف النص ---
 def normalize_text(self, text: str) -> str:
@@ -111,44 +117,29 @@ def contains_link(self, message: discord.Message) -> bool:
 
     content = self.normalize_text(full_content)
 
-    # Markdown links
     markdown_links = re.findall(r"\[.*?\]\((.*?)\)", full_content)
     for link in markdown_links:
-        link_norm = self.normalize_text(link)
-        if not any(domain in link_norm for domain in spotify_whitelist):
+        if not any(domain in self.normalize_text(link) for domain in spotify_whitelist):
             return True
 
-    # http متقطع
-    if re.search(r"h\s*t\s*t\s*p\s*s?\s*:\s*/\s*/", full_content.lower()):
-        return True
-    # www متقطع
-    if re.search(r"w\s*w\s*w\s*\.", full_content.lower()):
-        return True
-    # روابط عادية
-    if re.search(r"https?://", content):
-        if not any(domain in content for domain in spotify_whitelist):
+    patterns = [
+        r"h\s*t\s*t\s*p\s*s?\s*:\s*/\s*/",
+        r"w\s*w\s*w\s*\.",
+        r"https?://",
+        r"[a-z0-9\-]+\.(com|net|org|gg|io|me|co|xyz|info|app|site|store|online|tech|dev|link)",
+        r"d\s*i\s*s\s*c\s*o\s*r\s*d\s*\.\s*g\s*g"
+    ]
+
+    for pat in patterns:
+        if re.search(pat, content):
             return True
 
-    # دومينات عامة
-    domain_pattern = r"[a-z0-9\-]+\.(com|net|org|gg|io|me|co|xyz|info|app|site|store|online|tech|dev|link)"
-    if re.search(domain_pattern, content):
-        if not any(domain in content for domain in spotify_whitelist):
+    for short in shorteners:
+        if short in content:
             return True
 
-    # دعوات ديسكورد مخفية
-    if re.search(r"d\s*i\s*s\s*c\s*o\s*r\s*d\s*\.\s*g\s*g", full_content.lower()):
-        return True
-    if "discord.com/invite" in content:
-        return True
-
-    # Shorteners
-    if any(short in content for short in shorteners):
-        return True
-
-    # فحص المرفقات
     for attachment in message.attachments:
-        filename = self.normalize_text(attachment.filename)
-        if re.search(domain_pattern, filename):
+        if re.search(patterns[3], self.normalize_text(attachment.filename)):
             return True
 
     return False
@@ -162,7 +153,7 @@ async def on_message(self, message):
     now = datetime.now(UTC)
 
     if not any(role.permissions.manage_messages for role in message.author.roles):
-        if self.contains_link(message):
+        if bot.contains_link(message):
             if message.channel.id == ALLOWED_CHANNEL_ID:
                 try:
                     await asyncio.sleep(5)
@@ -175,9 +166,9 @@ async def on_message(self, message):
             except:
                 pass
 
-            last_time = self.last_link_time.get(user_id)
+            last_time = bot.last_link_time.get(user_id)
             if not last_time or (now - last_time) > timedelta(hours=1):
-                self.last_link_time[user_id] = now
+                bot.last_link_time[user_id] = now
                 embed = discord.Embed(
                     title="⚠️ تحذير من الروابط",
                     description=f"{message.author.mention} نشر الروابط ممنوع. المرة القادمة سيتم اسكاتك.",
@@ -196,9 +187,9 @@ async def on_message(self, message):
                     await message.channel.send(embed=embed)
                 except Exception as e:
                     print("⚠️ Timeout error:", e)
-            self.last_link_time[user_id] = None
+            bot.last_link_time[user_id] = None
 
-    await self.process_commands(message)
+    await bot.process_commands(message)
 
 # --- تشغيل البوت ---
 bot = MyBot()
