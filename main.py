@@ -153,7 +153,7 @@ def contains_link(self, message: discord.Message) -> bool:
 
     return False
 
-# --- معالجة الرسائل ثنائية اللغة ---
+# --- معالجة الرسائل ---
 async def on_message(self, message):
     if message.author.bot:
         return
@@ -170,7 +170,6 @@ async def on_message(self, message):
                 except:
                     pass
                 return
-
             try:
                 await message.delete()
             except:
@@ -180,26 +179,18 @@ async def on_message(self, message):
             if not last_time or (now - last_time) > timedelta(hours=1):
                 self.last_link_time[user_id] = now
                 embed = discord.Embed(
-                    title="⚠️ Warning | تحذير",
-                    description=(
-                        f"{message.author.mention}\n"
-                        "Posting links is prohibited. Next time you will be muted.\n"
-                        "نشر الروابط ممنوع. المرة القادمة سيتم اسكاتك."
-                    ),
+                    title="⚠️ تحذير من الروابط",
+                    description=f"{message.author.mention} نشر الروابط ممنوع. المرة القادمة سيتم اسكاتك.",
                     color=0xFFFF00
                 )
                 await message.channel.send(embed=embed)
             else:
                 try:
                     until_time = utcnow() + timedelta(hours=1)
-                    await message.author.timeout(until_time, reason="Posting links / نشر روابط")
+                    await message.author.timeout(until_time, reason="نشر روابط")
                     embed = discord.Embed(
-                        title="⛔ Muted | تم اسكاتك",
-                        description=(
-                            f"{message.author.mention}\n"
-                            "You have been muted for repeated posting of links.\n"
-                            "تم اسكاتك بسبب تكرار نشر الروابط."
-                        ),
+                        title="⛔ تم اسكاتك",
+                        description=f"{message.author.mention} تم اسكاتك بسبب تكرار نشر الروابط.",
                         color=0xFF0000
                     )
                     await message.channel.send(embed=embed)
