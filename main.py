@@ -357,15 +357,15 @@ class MyBot(commands.Bot):
         if not last_time:
             self.last_link_time[user_id] = now
 
-            embed = discord.Embed(
-                title="⚠️ تحذير | Warning",
-                description=(
-                    f"**{message.author.mention} نشر الروابط ممنوع.**\n"
-                    f"Links are not allowed.\n\n"
-                    f"المرة القادمة سيتم اسكاتك لمدة ساعة.\n"
-                    f"Next time you will be muted for 1 hour."
-                ),
-                color=0xF1C40F
+           embed = discord.Embed(
+    title="⚠️ تحذير | Warning",
+    description=f"""**{message.author.mention} نشر الروابط ممنوع.**
+Links are not allowed.
+
+المرة القادمة سيتم اسكاتك لمدة ساعة.
+Next time you will be muted for 1 hour.""",
+    color=0xF1C40F
+)
             )
             await message.channel.send(embed=embed)
             return
@@ -427,3 +427,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
