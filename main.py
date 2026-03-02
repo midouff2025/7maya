@@ -18,7 +18,7 @@ TOKEN = os.environ.get("DISCORD")
 ALLOWED_CHANNEL_ID = 1403040565137899733
 
 # ضع رابط الريندر هنا
-SELF_PING_URL = "https://your-app-name.onrender.com/"  # <-- عدل هذا
+SELF_PING_URL = "https://midou-cheat.onrender.com"  # <-- عدل هذا
 
 if not TOKEN:
     raise ValueError("Missing DISCORD in environment variables")
@@ -225,3 +225,4 @@ async def main():
 if __name__ == "__main__":
     threading.Thread(target=run_flask).start()
     asyncio.run(main())
+
